@@ -12,8 +12,8 @@ const char* pwd = "qsq060823";
 WebServer server(PORT);
 
 float KKP = 1;
-int fendu=10;
-float TriggerAngle=30.0;
+int RotateStep=10;
+float TriggerAngle=25.0;
 void handleSetPID()
 {
     if (server.hasArg("channel")&&server.hasArg("p")&&server.hasArg("i")&&server.hasArg("d")&&server.hasArg("limit")) 
@@ -25,7 +25,7 @@ void handleSetPID()
         if(target==1)  BLDC.SetPID_Angel(kp,ki,kd);
         if(target==2)  BLDC.SetPID_Velocity(kp,ki,kd);
         if(target==3)  {KKP=kp;Serial.print(KKP);}
-        if(target==6)  {fendu=kp;Serial.print(fendu);}
+        if(target==6)  {RotateStep=kp;Serial.print(RotateStep);}
         server.send(200, "text/plain", "Target set: " + String(target)+"  Kp="+String(kp)+" Ki="+String(ki)+" Kd="+String(kd));
     } 
     else 
@@ -50,12 +50,12 @@ float RAD2DEG(float RAD)
 }
 
 float rd;
-volatile float attractor = fendu*PI/180.0;
+volatile float attractor = RotateStep*PI/180.0;
 
 
 void BTN_Click()
 {
-    fendu = 1;
+    RotateStep = 1;
     KKP=0.1;
     Serial.println("click\n");
     bleKeyboard.pressDial();
@@ -64,8 +64,8 @@ void BTN_Click()
 
 void BTN_LongPressBegin()
 {
-    KKP=6;
-    fendu = 30;
+    KKP=4;
+    RotateStep = 30;
     
     Serial.println("LPB\n");
     bleKeyboard.pressDial();
@@ -91,23 +91,23 @@ void button_event_init() {
 float preAngle=0;
 void Knob()
 {
-    attractor = fendu*PI/180.0;
+    attractor = RotateStep*PI/180.0;
     rd = round(BLDC.GetAngel()/attractor)*attractor;
     BLDC.SetTorque(KKP*(rd - BLDC.GetAngel()));
 
-    if(BLDC.GetAngel()-preAngle>DEG2RAD(30)) 
+    if(BLDC.GetAngel()-preAngle>DEG2RAD(TriggerAngle)) 
     {
-        Serial.print("rotate");
+        Serial.print("rotate +\n");
         bleKeyboard.rotate(1);
         preAngle = BLDC.GetAngel();
     }
-    else if (BLDC.GetAngel()-preAngle<-DEG2RAD(30))
+    else if (BLDC.GetAngel()-preAngle<-DEG2RAD(TriggerAngle))
     {
-        Serial.print("rotate");
+        Serial.print("rotate -\n");
         bleKeyboard.rotate(-1);
         preAngle = BLDC.GetAngel();
     }
-    
+
 }
 
 void loop() 
@@ -119,11 +119,9 @@ void loop()
 
 void setup() {
   Serial.begin(115200);
-  Serial.print("ws");
-  WIFI_Init( ssid,pwd);
+  WIFI_Init(ssid,pwd);
   BLDC.MotorInit(1,32,33,25,0,1,2,12.6,7,1,22,21);
   BLDC.SetLowPassFliter_Tf(0.6);
-  Serial.print("Ssssssss");
   BLDC.SetPID_Angel(0.06,0.0004,0.0003,100,0);
   BLDC.SetPID_Velocity(1.2,0.00,0,6.3,0);
   server.on("/",handleRoot);
