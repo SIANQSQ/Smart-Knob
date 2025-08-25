@@ -11,7 +11,9 @@ const char* ssid = "屈圣桥的iPhone";
 const char* pwd = "qsq060823";
 WebServer server(PORT);
 
-float KKP = 0.02;
+float KKP = 1;
+int fendu=10;
+float TriggerAngle=30.0;
 void handleSetPID()
 {
     if (server.hasArg("channel")&&server.hasArg("p")&&server.hasArg("i")&&server.hasArg("d")&&server.hasArg("limit")) 
@@ -23,6 +25,7 @@ void handleSetPID()
         if(target==1)  BLDC.SetPID_Angel(kp,ki,kd);
         if(target==2)  BLDC.SetPID_Velocity(kp,ki,kd);
         if(target==3)  {KKP=kp;Serial.print(KKP);}
+        if(target==6)  {fendu=kp;Serial.print(fendu);}
         server.send(200, "text/plain", "Target set: " + String(target)+"  Kp="+String(kp)+" Ki="+String(ki)+" Kd="+String(kd));
     } 
     else 
@@ -47,12 +50,13 @@ float RAD2DEG(float RAD)
 }
 
 float rd;
-float attractor = 10*PI/180.0;
+volatile float attractor = fendu*PI/180.0;
 
 
 void BTN_Click()
 {
-    attractor = 1*PI/180.0;
+    fendu = 1;
+    KKP=0.1;
     Serial.println("click\n");
     bleKeyboard.pressDial();
     bleKeyboard.releaseDial();
@@ -60,7 +64,9 @@ void BTN_Click()
 
 void BTN_LongPressBegin()
 {
-    attractor = 10*PI/180.0;
+    KKP=6;
+    fendu = 30;
+    
     Serial.println("LPB\n");
     bleKeyboard.pressDial();
 }
@@ -85,7 +91,7 @@ void button_event_init() {
 float preAngle=0;
 void Knob()
 {
-    //BLDC.SetVelocityAngel(serial_motor_target());
+    attractor = fendu*PI/180.0;
     rd = round(BLDC.GetAngel()/attractor)*attractor;
     BLDC.SetTorque(KKP*(rd - BLDC.GetAngel()));
 
@@ -106,50 +112,24 @@ void Knob()
 
 void loop() 
 {     
-    button.tick(); // 让OneButton库处理按钮状态
+    button.tick();
     Knob();
-    //设置PID
-//   DFOC_M0_SET_ANGLE_PID(1.8,0,0,0);
-//   DFOC_M0_SET_VEL_PID(0.01,0.00,0,0);
-//   //给库设定速度
-//   DFOC_M0_set_Velocity_Angle(serial_motor_target()); 
-//   //接收串口
-    //serialReceiveUserCommand();
-    //server.handleClient();
-    // 
-    
-    // bleKeyboard.pressDial();
-    // delay(1);
-    // bleKeyboard.rotate(1);
-    // delay(1);
-    // bleKeyboard.releaseDial();
-    // delay(1);
-    // bleKeyboard.pressDial();
-    // Serial.println("press");
-    // delay(1000);
-    // bleKeyboard.releaseDial();
-    // bleKeyboard.rotate(1);
-    delay(100);
-
-
-    //BLDC.SetVelocityAngel(BLDC.GetAngel());
-    //BLDC.SetForceAngel(serial_motor_target());
+    server.handleClient();
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.print("ws");
-//   WIFI_Init( ssid,pwd);
+  WIFI_Init( ssid,pwd);
   BLDC.MotorInit(1,32,33,25,0,1,2,12.6,7,1,22,21);
   BLDC.SetLowPassFliter_Tf(0.6);
-//  BLDC1.MotorInit(2,13,12,13,3,4,5,12.6,7,1,4,2);
   Serial.print("Ssssssss");
   BLDC.SetPID_Angel(0.06,0.0004,0.0003,100,0);
   BLDC.SetPID_Velocity(1.2,0.00,0,6.3,0);
-//   server.on("/",handleRoot);
-//   server.on("/setpid",handleSetPID);
-//   server.begin();
-//   Serial.println("HTTP server started");
+  server.on("/",handleRoot);
+  server.on("/setpid",handleSetPID);
+  server.begin();
+  Serial.println("HTTP server started");
   button_event_init();
   bleKeyboard.begin();
 }
